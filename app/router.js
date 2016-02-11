@@ -1,12 +1,14 @@
-var mongoose = require('mongoose');
-var express = require('express');
-var multer = require('multer');
-var path = require('path');
-var bodyParser = require('body-parser');
-var fs = require('fs');
-var http = require('http');
-var url = require('url');
-
+var mongoose	= require('mongoose');
+var express 	= require('express');
+var multer 		= require('multer');
+var path		= require('path');
+var bodyParser 	= require('body-parser');
+var fs			= require('fs');
+var http 		= require('http');
+var url 		= require('url');
+var jwt         = require('jwt-simple');
+var config      = require('./config/database');
+var passport	= require('passport');
 
 var base_path = __dirname;
 var upload_path = __dirname + "/upload";
@@ -28,8 +30,49 @@ router.get('/', function(req, res) {
 });
 
 var Media = require(__dirname + "/models/media");
+var User = require(__dirname + "/models/user");
 
 
+
+function isAuthenticated(req,res,next){
+	if(passport.authenticate('jwt', { session: false})){
+		var token = getToken(req.headers);
+		  if (token) {
+		    var decoded = jwt.decode(token, config.secret);
+		    User.findOne({
+		      username: decoded.username
+		    }, function(err, user) {
+		        if (err) throw err;
+		 
+		        if (!user) {
+		          return res.status(403).send({success: false, message: 'Authentication failed. User not found.'});
+		        } else {
+		        	req.user = user;
+		        	req.result = passport.authenticate('jwt', { session: false});
+		          next();
+		        }
+		    });
+		  } else {
+		    return res.status(403).send({success: false, message: 'No token provided.'});
+		  }
+	}
+	else{
+		return res.status(403).send({success: false, message: 'No token provided.'});
+	}
+}
+
+getToken = function (headers) {
+  if (headers && headers.authorization) {
+    var parted = headers.authorization.split(' ');
+    if (parted.length === 2) {
+      return parted[1];
+    } else {
+      return null;
+    }
+  } else {
+    return null;
+  }
+};
 
 
 
@@ -76,13 +119,13 @@ var upload = multer({storage : storage, limits : {fieldNameSize : 100, files : 1
 }}).single('file');
 
 router.route('/media')
-.post(function(req, res){
+.post(isAuthenticated,function(req, res, user){
 	var fullUrl = req.protocol + '://' + req.get('host');
 	var fullPath;
 
 	upload(req,res,function(err, filename){
 		if(err || !req.file){
-			return res.json({error : 'Could not save this file.', error_detail : err});
+			return res.json({error : 'Could not save this file.', error_detail : err, success : false});
 		}
 		fullPath = fullUrl + "/upload/" + req.file.originalname;
 
@@ -92,10 +135,11 @@ router.route('/media')
 		mediaModel.name = req.file.originalname;
 		mediaModel.mimetype = req.file.mimetype;
 		mediaModel.extension = path.extname(req.file.originalname);
+		mediaModel.owner = req.user._id;
 
 		mediaModel.save(function(cb1){
 			if(err){
-				return res.json({error : 'Cloud not insert in database.'});
+				return res.json({error : 'Cloud not insert in database.', success : false});
 			}
 
 			return res.json(mediaModel);
@@ -105,12 +149,12 @@ router.route('/media')
 
 
 router.route('/media/:id')
-.get(function(req,res){
+.get(isAuthenticated,function(req,res){
 	var fullUrl = req.protocol + '://' + req.get('host');
 
 	Media.findOne({_id : req.params.id}, function(err,model){
-		if(err){
-			return res.json({error : 'id not found.'});
+		if(err || !model){
+			return res.json({error : 'id not found.', success : false});
 		}
 
 		var img = fs.readFileSync(__dirname + model.path);
@@ -120,15 +164,18 @@ router.route('/media/:id')
 	//
 	//res.json()
 })
-.delete(function(req,res){
+.delete(isAuthenticated,function(req,res){
 	Media.findOne({_id : req.params.id}, function(err,model){
 		if(err || !model){
-			return res.json({error : 'id not found.'});
+			return res.json({error : 'id not found.', success : false});
+		}
+		if(model.owner.toString() != req.user._id.toString()){
+			return res.json({error : 'You have to be the owner.', success : false});
 		}
 
 		fs.unlink(__dirname + model.path, function(){
 			model.remove(function(err,value){
-				return res.json({success : 1});
+				return res.status(200).end();
 			});
 		});
 	});	
@@ -138,15 +185,75 @@ router.route('/media/:id')
 
 // USER ROUTER
 //=======================================
-router.route('/user')
+router.route('/user/signup')
 .post(function(req,res){
+  if (!req.body.username || !req.body.password || !req.body.full_name || !req.body.email) {
+    res.json({success: false, msg: 'Please fill in all required fields.'});
+  }	
 
+  var newuser = new User();
+  newuser.username = req.body.username;
+  newuser.full_name = req.body.full_name;
+  newuser.email = req.body.email;
+  newuser.password = req.body.password;
+
+  newuser.save(function(err,model){
+  	if(err || !model){
+  		return res.json({message : 'Coud not save this user.', success : false, error_detail : err});
+  	}
+  	else{
+  		res.json(model);
+  	}
+  });
 })
-.put(function(req,res){
 
-})
-.delete(function(req,res){
+router.route('/user/signin')
+.post(function(req,res){
+	User.findOne({
+	    username: req.body.username
+	  }, function(err, user) {
+	    if (err) throw err;
+	 
+	    if (!user) {
+	      res.send({success: false, message: 'Authentication failed. User not found.'});
+	    } else {
+	      // check if password matches
+	      user.comparePassword(req.body.password, function (err, isMatch) {
+	        if (isMatch && !err) {
+	          // if user is found and password is right create a token
+	          var token = jwt.encode(user, config.secret);
+	          // return the information including token as JSON
+	          res.json({success: true, token: 'JWT ' + token, model : user});
+	        } else {
+	          res.send({success: false, message: 'Authentication failed. Wrong password.'});
+	        }
+	      });
+	    }
+	  });
+});
 
+router.route('/user/:id')
+.put(isAuthenticated,function(req,res){
+	User.findOne({_id : req.params.id}, function(err,model){
+		if(err || !model){
+			return res.json({error : 'id not found.', success : false});
+		}
+		if(req.params.id.toString() != req.user._id.toString()){
+			return res.json({error : 'You have to be the owner.', success : false});
+		}
+
+		for(var s in req.body){
+			model[s] = req.body[s];
+		}
+
+		model.save(function(err,model){
+			if(err || !model){
+				return res.status(403).json({success : false, message : 'Could not save this data.'});
+			}
+
+			res.status(200).json(model);
+		});
+	});	
 });
 
 

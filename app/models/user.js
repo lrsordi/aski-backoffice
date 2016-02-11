@@ -1,6 +1,7 @@
 var mongoose = require('mongoose');
 var passport = require('passport');
 var bcrypt = require('bcrypt');
+var uniqueValidator = require('mongoose-unique-validator');
 
 var Schema = mongoose.Schema;
 
@@ -8,17 +9,22 @@ var Schema = mongoose.Schema;
 var UserSchema = new Schema({
 	full_name : {type : String, required : true},
 	password : {type : String, required : true},
-	username : {type : String, required : true},
-	email : {type : String, required : true},
-	picture_id : {type : ObjectId, ref : "MediaSchema", required : false},
+	username : {type : String, required : true, unique : true},
+	email : {type : String, required : true, unique : true},
+	picture_id : {type : Schema.Types.ObjectId, ref : "MediaSchema"},
 	facebook_id : {type : Number, required : false},
-	cpf : {type : Number, required : false},
-	cnpj : {type : Number, required : false},
+	cpf : {type : String, required : false},
+	cnpj : {type : String, required : false},
 	is_documents_validated : {type : Boolean, default : false},
 	is_consultant : {type : Boolean, default : false},
-	category_id : {type : ObjectId, ref : "CategorySchema", required : false},
-	level : {type : ObjectId, ref : "LevelSchema", required : false}
+	category_id : {type : Schema.Types.ObjectId, ref : "CategorySchema", required : false},
+	document_image_id : {type : Schema.Types.ObjectId, ref : "MediaSchema"},
+	level : {type : Schema.Types.ObjectId, ref : "LevelSchema", required : false},
+	created_at : {type : Date, default : Date.now},
+	updated_at : {type : Date}
 });
+
+UserSchema.plugin(uniqueValidator);
 
 
 
@@ -52,4 +58,4 @@ UserSchema.methods.comparePassword = function (passw, cb) {
 };
 
 
-module.exports = mongoose.Model('User', UserSchema);
+module.exports = mongoose.model('User', UserSchema);

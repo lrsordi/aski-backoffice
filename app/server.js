@@ -33,5 +33,6 @@ console.log('Magic happens on port ' + port);
 // CONNECT TO DATABASE
 var mongoose = require('mongoose');
 mongoose.connect(config.database);
+require('./config/passport')(passport);
 
 
