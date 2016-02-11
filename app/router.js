@@ -9,6 +9,7 @@ var url 		= require('url');
 var jwt         = require('jwt-simple');
 var config      = require('./config/database');
 var passport	= require('passport');
+var unirest		= require('unirest');
 
 var base_path = __dirname;
 var upload_path = __dirname + "/upload";
@@ -242,20 +243,100 @@ router.route('/user/:id')
 			return res.json({error : 'You have to be the owner.', success : false});
 		}
 
+		var valid = model.is_documents_validated;
+
 		for(var s in req.body){
 			model[s] = req.body[s];
 		}
+		model.is_documents_validated = valid;
 
-		model.save(function(err,model){
+
+		model.save(function(err,modelresponse){
 			if(err || !model){
 				return res.status(403).json({success : false, message : 'Could not save this data.'});
 			}
 
-			res.status(200).json(model);
+			// validate image...
+			if(req.body.document_image_id && !model.is_documents_validated){
+				validateDocumentImage(req.body.document_image_id, function(success,msg){
+					if(!success){
+						res.status(403).json({success : success, message :msg});
+					}
+				});
+			}
+			else
+			{
+				res.status(200).json(modelresponse);
+			}
 		});
 	});	
 });
 
+
+function validateDocumentImage(id,cb){
+	Media.findOne({_id : id}, function(err,model){
+		if(err || !model){
+			cb(false, 'Document image not found.');
+			return;
+		}
+		else{
+			var req = unirest("POST", "http://api.imagga.com/v1/content");
+
+			req.attach('file',__dirname + model.path);
+			req.headers({
+			  "authorization": "Basic YWNjXzlkYTkyZjU5YzJkNDc5NjpmMmFiYTVhYmE2OGI0ZjAwOGNmYjRmYzUyNTIxOGNmNw==",
+			  "accept": "application/json"
+			});
+			req.end(function(response){
+				if(response.body.status === "uploaded" || response.body.status === "success"){
+					var id = response.body.uploaded[0].id;
+
+					var reqtag = unirest("GET", "http://api.imagga.com/v1/tagging");
+					reqtag.headers({
+					  "authorization": "Basic YWNjXzlkYTkyZjU5YzJkNDc5NjpmMmFiYTVhYmE2OGI0ZjAwOGNmYjRmYzUyNTIxOGNmNw==",
+					  "accept": "application/json"
+					});					
+					reqtag.query({
+						content : id
+					});
+					reqtag.end(function(respo){
+						analyzeTags(model,respo, cb);
+					});
+				}
+				else{
+					cb(false, response.body);
+				}
+			});		
+		}
+	});
+}
+
+
+function analyzeTags(model,resp, cb){
+	if(resp.statusCode !== 200){
+		cb(false, 'An error Ocurred.');
+		return;
+	}
+
+	var tags = resp.body.results[0].tags;
+	var score = 0;
+
+	for(var i = 0; i < tags.length; i++){
+		if(tags[i].tag === "document" || tags[i].tag === "writing" || tags[i].tag === "paper"){
+			score += tags[i].confidence;
+		}
+	}
+
+	if(score < 100)
+		cb(false,"The image has to be a document");
+	else
+		analyzeText(model,cb);
+}
+
+
+function analyzeText(model,cb){
+	
+}
 
 
 

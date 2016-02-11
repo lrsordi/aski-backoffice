@@ -2,6 +2,7 @@ var mongoose = require('mongoose');
 var passport = require('passport');
 var bcrypt = require('bcrypt');
 var uniqueValidator = require('mongoose-unique-validator');
+var unirest = require("unirest");
 
 var Schema = mongoose.Schema;
 
