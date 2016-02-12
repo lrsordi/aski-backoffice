@@ -32,6 +32,7 @@ router.get('/', function(req, res) {
 
 var Media = require(__dirname + "/models/media");
 var User = require(__dirname + "/models/user");
+var Log = require(__dirname + "/models/logs");
 
 
 
@@ -250,6 +251,8 @@ router.route('/user/:id')
 		}
 		model.is_documents_validated = valid;
 
+		log('user_update_started',JSON.stringify(model));
+
 
 		model.save(function(err,modelresponse){
 			if(err || !model){
@@ -258,11 +261,15 @@ router.route('/user/:id')
 
 			// validate image...
 			if(req.body.document_image_id && !model.is_documents_validated){
+				log('user_start_validate_image',JSON.stringify(model));
+
 				validateDocumentImage(req.body.document_image_id,modelresponse.full_name, function(success,msg){
 					if(!success){
+						log('user_error_validate_image',msg);
 						res.status(403).json({success : success, message :msg});
 					}
 					else{
+						log('user_success_validate_image',msg);
 						model.is_documents_validated = true;
 						model.save(function(err,resp){
 							res.status(200).end();
@@ -345,11 +352,14 @@ function analyzeText(model,fullname,cb){
 	req.attach("file",__dirname + model.path);
 	req.field("apikey","helloworld");
 
+	log('user_start_validate_image_text',fullname);
+
 	req.end(function(res){
 		var results = res.body.ParsedResults[0].FileParseExitCode;
 		var text = res.body.ParsedResults[0].ParsedText;
 
 		if(results !== 1){
+			log('user_start_validate_image_text',JSON.stringify(res.body));
 			cb(false,'Text not found in image.');
 		}
 		else {
@@ -380,6 +390,10 @@ function string_to_slug(str) {
     .replace(/-+/g, '-'); // collapse dashes
 
   return str;
+}
+
+function log(type,str){
+	new Log({type : type, value : str}).save(function(err,model){});
 }
 
 
