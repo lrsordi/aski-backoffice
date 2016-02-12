@@ -258,9 +258,15 @@ router.route('/user/:id')
 
 			// validate image...
 			if(req.body.document_image_id && !model.is_documents_validated){
-				validateDocumentImage(req.body.document_image_id, function(success,msg){
+				validateDocumentImage(req.body.document_image_id,modelresponse.full_name, function(success,msg){
 					if(!success){
 						res.status(403).json({success : success, message :msg});
+					}
+					else{
+						model.is_documents_validated = true;
+						model.save(function(err,resp){
+							res.status(200).end();
+						});	
 					}
 				});
 			}
@@ -273,7 +279,7 @@ router.route('/user/:id')
 });
 
 
-function validateDocumentImage(id,cb){
+function validateDocumentImage(id,fullname,cb){
 	Media.findOne({_id : id}, function(err,model){
 		if(err || !model){
 			cb(false, 'Document image not found.');
@@ -300,11 +306,11 @@ function validateDocumentImage(id,cb){
 						content : id
 					});
 					reqtag.end(function(respo){
-						analyzeTags(model,respo, cb);
+						analyzeTags(model,fullname,respo, cb);
 					});
 				}
 				else{
-					cb(false, response.body);
+					cb(false, 'Image is not a document.');
 				}
 			});		
 		}
@@ -312,7 +318,7 @@ function validateDocumentImage(id,cb){
 }
 
 
-function analyzeTags(model,resp, cb){
+function analyzeTags(model,fullname,resp, cb){
 	if(resp.statusCode !== 200){
 		cb(false, 'An error Ocurred.');
 		return;
@@ -322,20 +328,58 @@ function analyzeTags(model,resp, cb){
 	var score = 0;
 
 	for(var i = 0; i < tags.length; i++){
-		if(tags[i].tag === "document" || tags[i].tag === "writing" || tags[i].tag === "paper"){
+		if(tags[i].tag === "document" || tags[i].tag === "writing" || tags[i].tag === "paper" || tags[i].tag === "money" || tags[i].tag === "business" || tags[i].tag === "currency"){
 			score += tags[i].confidence;
 		}
 	}
 
 	if(score < 100)
-		cb(false,"The image has to be a document");
+		cb(false,resp.body);
 	else
-		analyzeText(model,cb);
+		analyzeText(model,fullname,cb);
 }
 
 
-function analyzeText(model,cb){
-	
+function analyzeText(model,fullname,cb){
+	var req = unirest("POST", "https://api.ocr.space/Parse/Image");
+	req.attach("file",__dirname + model.path);
+	req.field("apikey","helloworld");
+
+	req.end(function(res){
+		var results = res.body.ParsedResults[0].FileParseExitCode;
+		var text = res.body.ParsedResults[0].ParsedText;
+
+		if(results !== 1){
+			cb(false,'Text not found in image.');
+		}
+		else {
+			if(string_to_slug(text).indexOf(string_to_slug(fullname)) > -1){
+				cb(true);
+			}
+			else{
+				cb(false,'Full name not found in image.');
+			}
+		}
+	});
+}
+
+
+function string_to_slug(str) {
+  str = str.replace(/^\s+|\s+$/g, ''); // trim
+  str = str.toLowerCase();
+  
+  // remove accents, swap ñ for n, etc
+  var from = "àáäâèéëêìíïîòóöôùúüûñç·/_,:;";
+  var to   = "aaaaeeeeiiiioooouuuunc------";
+  for (var i=0, l=from.length ; i<l ; i++) {
+    str = str.replace(new RegExp(from.charAt(i), 'g'), to.charAt(i));
+  }
+
+  str = str.replace(/[^a-z0-9 -]/g, '') // remove invalid chars
+    .replace(/\s+/g, '-') // collapse whitespace and replace by -
+    .replace(/-+/g, '-'); // collapse dashes
+
+  return str;
 }
 
 
