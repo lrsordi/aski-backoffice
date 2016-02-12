@@ -17,6 +17,7 @@ var UserSchema = new Schema({
 	cpf : {type : String, required : false},
 	cnpj : {type : String, required : false},
 	is_documents_validated : {type : Boolean, default : false},
+	is_picture_validated : {type : Boolean, default : false},
 	is_consultant : {type : Boolean, default : false},
 	category_id : {type : Schema.Types.ObjectId, ref : "CategorySchema", required : false},
 	document_image_id : {type : Schema.Types.ObjectId, ref : "MediaSchema"},

@@ -272,18 +272,51 @@ router.route('/user/:id')
 						log('user_success_validate_image',msg);
 						model.is_documents_validated = true;
 						model.save(function(err,resp){
-							res.status(200).end();
+
+							if(req.body.picture_id && !model.is_picture_validated){
+								validatePicture(req.body.picture_id, model);
+							}
+							else{
+								res.status(200).end();
+							}
 						});	
 					}
 				});
 			}
 			else
 			{
-				res.status(200).json(modelresponse);
+				if(req.body.picture_id && !model.is_picture_validated){
+					validatePicture(req.body.picture_id, model, res);
+				}
+				else{
+					res.status(200).end();
+				}
+				
 			}
 		});
 	});	
 });
+
+
+function validatePicture(id, model, res){
+	Media.findOne({_id : id}, function(err,model){
+		if(err || !model){
+			res.status(403).json({success : false, message :'Image not found'});
+			return;
+		}
+		else{
+			//return res.status(403).json({success : false, message :__dirname + model.path});
+
+			var req = unirest("POST", "https://api.havenondemand.com/1/api/sync/detectfaces/v1");
+			req.attach("file",__dirname + model.path);
+			req.field("apikey","9635d492-1715-47f2-8e55-7a4959526aa0");
+
+			req.end(function(response){
+				res.status(403).json({success : false, message :response.body});
+			});		
+		}
+	});	
+}
 
 
 function validateDocumentImage(id,fullname,cb){
