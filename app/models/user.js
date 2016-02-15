@@ -12,18 +12,20 @@ var UserSchema = new Schema({
 	password : {type : String, required : true},
 	username : {type : String, required : true, unique : true},
 	email : {type : String, required : true, unique : true},
-	picture_id : {type : Schema.Types.ObjectId, ref : "MediaSchema"},
+	picture_id : {type : Schema.Types.ObjectId, ref : "Media"},
 	facebook_id : {type : Number, required : false},
 	cpf : {type : String, required : false},
 	cnpj : {type : String, required : false},
 	is_documents_validated : {type : Boolean, default : false},
 	is_picture_validated : {type : Boolean, default : false},
 	is_consultant : {type : Boolean, default : false},
-	category_id : {type : Schema.Types.ObjectId, ref : "CategorySchema", required : false},
-	document_image_id : {type : Schema.Types.ObjectId, ref : "MediaSchema"},
-	level : {type : Schema.Types.ObjectId, ref : "LevelSchema", required : false},
+	category_id : {type : Schema.Types.ObjectId, ref : "Category", required : false},
+	document_image_id : {type : Schema.Types.ObjectId, ref : "Media"},
+	level : {type : Schema.Types.ObjectId, ref : "Level", required : false},
 	created_at : {type : Date, default : Date.now},
-	updated_at : {type : Date}
+	updated_at : {type : Date},
+    consulting_price : {type : Number, required : false},
+    consulting_days : {type : Number, required : false}
 });
 
 UserSchema.plugin(uniqueValidator);
