@@ -3,7 +3,7 @@ var passport = require('passport');
 var bcrypt = require('bcrypt');
 var uniqueValidator = require('mongoose-unique-validator');
 var unirest = require("unirest");
-
+var autopopulate = require('mongoose-autopopulate');
 var Schema = mongoose.Schema;
 
 
@@ -29,6 +29,7 @@ var UserSchema = new Schema({
 });
 
 UserSchema.plugin(uniqueValidator);
+UserSchema.plugin(autopopulate);
 
 
 

@@ -93,7 +93,7 @@ function mediaRoutes(router){
 				return res.json({error : 'id not found.', success : false});
 			}
 
-			var img = fs.readFileSync(__dirname + "./../" + model.path);
+			var img = fs.readFileSync(__dirname + "/.." + model.path);
 	     	res.writeHead(200, {'Content-Type': model.mimetype });
 	     	res.end(img, 'binary');
 		});

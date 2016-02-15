@@ -8,6 +8,7 @@
     "express-validator": "^2.19.1",
     "jwt-simple": "^0.4.1",
     "mongoose": "4.2.8",
+    "mongoose-autopopulate": "^0.4.0",
     "mongoose-unique-validator": "~1.0.0",
     "multer": "1.1.0",
     "passport": "^0.3.2",

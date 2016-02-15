@@ -1,5 +1,6 @@
 var mongoose  = require('mongoose');
 var Schema = mongoose.Schema;
+var autopopulate = require('mongoose-autopopulate');
 
 var CreditSchema = new Schema({
 	owner : {type : Schema.Types.ObjectId, required : true, ref : 'User'},
@@ -11,5 +12,6 @@ var CreditSchema = new Schema({
 	expiration_date : {type : Date, required : false, default : null}
 });
 
+CreditSchema.plugin(autopopulate);
 
 module.exports = mongoose.model('Credit', CreditSchema);

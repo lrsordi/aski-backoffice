@@ -1,5 +1,6 @@
 var mongoose  = require('mongoose');
 var Schema = mongoose.Schema;
+var autopopulate = require('mongoose-autopopulate');
 
 var QuestionSchema = new Schema({
 	created_at : {type : Date, required : false, default : Date.now},
@@ -10,6 +11,8 @@ var QuestionSchema = new Schema({
 	interactions : [{type : Schema.Types.ObjectId, ref : 'QuestionInteraction', required:true}],
 	question_type : {type : Schema.Types.ObjectId, ref : 'QuestionType', required:true}
 });
+
+QuestionSchema.plugin(autopopulate);
 
 
 module.exports = mongoose.model('Question', QuestionSchema);

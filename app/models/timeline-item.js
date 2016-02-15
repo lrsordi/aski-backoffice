@@ -1,5 +1,6 @@
 var mongoose  = require('mongoose');
 var Schema = mongoose.Schema;
+var autopopulate = require('mongoose-autopopulate');
 
 var TimelineItemSchema = new Schema({
 	owner : {type : Schema.Types.ObjectId, required : true, ref : 'User'},
@@ -11,5 +12,7 @@ var TimelineItemSchema = new Schema({
 	created_at : {type : Date, required : false, default : Date.now}
 });
 
+
+TimelineItemSchema.plugin(autopopulate);
 
 module.exports = mongoose.model('TimelineItem', TimelineItemSchema);
